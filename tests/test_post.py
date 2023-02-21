@@ -81,6 +81,17 @@ class TestPost(unittest.TestCase):
             status=PostStatus.draft
         ).title, "123-pineapple-pizza-is-delic")
 
+        # headline and body
+        self.assertEqual(Post(
+            id=123,
+            author="",
+            content=PostContent(
+                headline="pineapple pizza is delicious",
+                body="prickly pears apparently pair",
+            ),
+            status=PostStatus.draft
+        ).title, "123-pineapple-pizza-is-delic")
+
 
 if __name__ == "__main__":
     unittest.main()
