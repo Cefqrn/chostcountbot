@@ -3,7 +3,7 @@ from __future__ import annotations
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from json import dumps, load
 from re import finditer
 from os import environ
@@ -26,7 +26,7 @@ class PostStatus(Enum):
     """Status of a post."""
     draft   = 0
     public  = 1
-    deleted = auto()
+    deleted = 2
 
 
 @dataclass(frozen=True)
@@ -44,9 +44,6 @@ class PostContent:
         
         Used when sending requests to the api.
         """
-        if status is PostStatus.deleted:
-            raise ValueError("can't encode a post with deleted status")
-
         # if the headline is empty there needs to be at least one block
         blocks = [
             {
@@ -147,11 +144,6 @@ class Post:
         """
         if self.status is PostStatus.deleted:
             raise PostDeletedError("can't edit deleted post")
-        
-        if new_status is PostStatus.deleted:
-            raise ValueError(
-                "can't change status to deleted (use Post.delete to delete a post)"
-            )
 
         if new_content is None:
             new_content = self.content
