@@ -8,14 +8,6 @@ USER_AGENT = "chostcountbot ( contact: cefqrn@gmail.com )"
 class WebhookNotFoundError(Exception): ...
 
 
-try:
-    webhook = environ["CHOSTCOUNTBOT_DISCORD_WEBHOOK"]
-except KeyError:
-    raise WebhookNotFoundError(
-        "CHOSTCOUNTBOT_DISCORD_WEBHOOK environment variable not set."
-    )
-
-
 def ping(message: str):
     with urlopen(
         Request(
@@ -29,3 +21,11 @@ def ping(message: str):
         )
     ):
         pass
+
+
+try:
+    webhook = environ["CHOSTCOUNTBOT_DISCORD_WEBHOOK"]
+except KeyError:
+    raise WebhookNotFoundError(
+        "CHOSTCOUNTBOT_DISCORD_WEBHOOK environment variable not set."
+    )

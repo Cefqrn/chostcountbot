@@ -88,8 +88,8 @@ class PostContent:
             if e.code == 404:
                 raise ProjectNotFoundError
 
-            # let the HTTPError crash the program if even we don't know what it is
-            raise e
+            # reraise unexpected errors
+            raise
         else:
             return Post(
                 id=post_id,
@@ -174,7 +174,7 @@ class Post:
             if e.code == 403:
                 raise PostForbiddenError
             
-            raise e
+            raise
         else:
             self.content = new_content
             self.status = new_status
@@ -200,7 +200,7 @@ class Post:
             if e.code == 403:
                 raise PostForbiddenError
 
-            raise e
+            raise
         else:
             self.status = PostStatus.deleted
 
@@ -211,4 +211,3 @@ except KeyError:
     raise CookieNotFoundError(
         "CHOSTCOUNTBOT_COHOST_COOKIE environment variable not set."
     )
-
