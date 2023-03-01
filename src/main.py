@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 
 PROJECT_NAME = "chostcount"
+ID_FILE_PATH = Path(__file__).parent / "ids.txt"
 
 
 def main() -> int:
@@ -16,12 +17,15 @@ def main() -> int:
     ).post(PROJECT_NAME, status=PostStatus.draft)
     logging.info(f"Posted successfully: id {current_post.id}")
 
+    # make sure the file exists before opening it
+    ID_FILE_PATH.touch()
+
     # get the id of the previous post
-    with open(Path(__file__).parent / "ids.txt", "r+") as f:
+    with ID_FILE_PATH.open("r+") as f:
         lines = f.readlines()
         previous_post_id = int(lines[-1]) if lines else 0
 
-        # append current post id to the end of the file
+        # append the current post id to the end of the file
         print(current_post.id, file=f)
 
     # add delay to get the correct date
