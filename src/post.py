@@ -3,7 +3,7 @@ from __future__ import annotations
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, auto
 from json import dumps, load
 from re import finditer
 from os import environ
@@ -16,32 +16,22 @@ HOST = "https://cohost.org"
 MAX_TITLE_LENGTH = 28
 
 
-class PostStatus(Enum):
-    """Status of a post."""
-
-    draft   = 0
-    public  = 1
-    deleted = 2
-
-
 class PostForbiddenError(Exception): ...
 class PostDeletedError(Exception): ...
 class ProjectNotFoundError(Exception): ...
 class CookieNotFoundError(Exception): ...
 
 
-try:
-    cookie = environ["CHOSTCOUNTBOT_COHOST_COOKIE"]
-except KeyError:
-    raise CookieNotFoundError(
-        "CHOSTCOUNTBOT_COHOST_COOKIE environment variable not set."
-    )
+class PostStatus(Enum):
+    """Status of a post."""
+    draft   = 0
+    public  = 1
+    deleted = auto()
 
 
 @dataclass(frozen=True)
 class PostContent:
     """Class representing the content of a post."""
-
     headline: str
     body: str
     adult_content: bool         = False
@@ -49,8 +39,13 @@ class PostContent:
     content_warnings: list[str] = field(default_factory=list)
 
     def encode(self, status: PostStatus) -> bytes:
+        """
+        Convert the content into a `bytes` object.
+        
+        Used when sending requests to the api.
+        """
         if status is PostStatus.deleted:
-            raise ValueError("Can't encode a post with deleted status")
+            raise ValueError("can't encode a post with deleted status")
 
         # if the headline is empty there needs to be at least one block
         blocks = [
@@ -71,11 +66,8 @@ class PostContent:
 
     def post(self, project_name: str, status: PostStatus=PostStatus.public) -> Post:
         """
-        Posts the content under `project_name` with the status `status`.
-
-        Returns a `Post` object.
+        Post the content under `project_name` with the status `status`.
         """
-
         try:
             with urlopen(
                 Request(
@@ -111,9 +103,9 @@ class PostContent:
 class Post:
     """
     Class representing a post on cohost.
+
     Should only be created using `PostContent.post`.
     """
-
     id: int
     author: str
     content: PostContent
@@ -121,8 +113,7 @@ class Post:
     
     @property
     def title(self):
-        """Last element in the link to the post. Also used as a filename."""
-
+        """Last element in the link to the post."""
         title = str(self.id)
 
         title_content = self.content.headline or self.content.body or "empty"
@@ -140,7 +131,6 @@ class Post:
     @property
     def link(self):
         """The Legend of Eggbug: A Link to the Post."""
-
         return f"{HOST}/{self.author}/post/{self.title}"
 
     def edit(
@@ -149,20 +139,18 @@ class Post:
         new_status: Optional[PostStatus]=None
     ) -> None:
         """
-        Replace the content of the post with `new_content`
-        and set its status to `new_status`.
+        Modify the content and/or the status of the post.
         
         If `new_content` is `None`, the post keeps its current content.
 
         If `new_status` is `None`, the post keeps its current status.
         """
-        
         if self.status is PostStatus.deleted:
-            raise PostDeletedError("Can't edit deleted post")
+            raise PostDeletedError("can't edit deleted post")
         
         if new_status is PostStatus.deleted:
             raise ValueError(
-                "Can't change status to deleted (Use Post.delete to delete a post)"
+                "can't change status to deleted (use Post.delete to delete a post)"
             )
 
         if new_content is None:
@@ -193,9 +181,8 @@ class Post:
 
     def delete(self) -> None:
         """Delete the post."""
-
         if self.status is PostStatus.deleted:
-            raise PostDeletedError("Post already deleted")
+            raise PostDeletedError("post already deleted")
 
         try:
             with urlopen(
@@ -216,3 +203,12 @@ class Post:
             raise e
         else:
             self.status = PostStatus.deleted
+
+
+try:
+    cookie = environ["CHOSTCOUNTBOT_COHOST_COOKIE"]
+except KeyError:
+    raise CookieNotFoundError(
+        "CHOSTCOUNTBOT_COHOST_COOKIE environment variable not set."
+    )
+
