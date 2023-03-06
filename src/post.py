@@ -16,10 +16,12 @@ HOST = "https://cohost.org"
 MAX_TITLE_LENGTH = 28
 
 
-class PostForbiddenError(Exception): ...
-class PostDeletedError(Exception): ...
-class ProjectNotFoundError(Exception): ...
 class CookieNotFoundError(Exception): ...
+
+class PostError(Exception): ...
+class ProjectNotFoundError(PostError): ...
+class PostForbiddenError(PostError): ...
+class PostDeletedError(PostError): ...
 
 
 class PostStatus(Enum):
@@ -81,12 +83,11 @@ class PostContent:
                 post_id = load(f)["postId"]
         except HTTPError as e:
             if e.code == 403:
-                raise PostForbiddenError
+                raise PostForbiddenError from e
             if e.code == 404:
-                raise ProjectNotFoundError
+                raise ProjectNotFoundError from e
 
-            # reraise unexpected errors
-            raise
+            raise PostError from e
         else:
             return Post(
                 id=post_id,
@@ -164,9 +165,9 @@ class Post:
                 pass
         except HTTPError as e:
             if e.code == 403:
-                raise PostForbiddenError
+                raise PostForbiddenError from e
             
-            raise
+            raise PostError from e
         else:
             self.content = new_content
             self.status = new_status
@@ -190,9 +191,9 @@ class Post:
                 pass
         except HTTPError as e:
             if e.code == 403:
-                raise PostForbiddenError
+                raise PostForbiddenError from e
 
-            raise
+            raise PostError from e
         else:
             self.status = PostStatus.deleted
 
