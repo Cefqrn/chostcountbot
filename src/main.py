@@ -24,9 +24,19 @@ def main() -> int:
     with ID_FILE_PATH.open("r+") as f:
         lines = f.readlines()
         previous_post_id = int(lines[-1]) if lines else 0
+        last_week_post_id = int(lines[-7]) if len(lines) >= 7 else 0
+        last_week_previous_post_id = int(lines[-8]) if len(lines) >= 8 else 0
 
         # append the current post id to the end of the file
         print(current_post.id, file=f)
+
+    post_count = current_post.id - previous_post_id
+
+    last_week_post_count = last_week_post_id - last_week_previous_post_id
+    last_week_post_count_ratio = (post_count - last_week_post_count) / last_week_post_count
+
+    week_average_post_count = (previous_post_id - last_week_previous_post_id) / 7
+    week_average_post_count_ratio = (post_count - week_average_post_count) / week_average_post_count
 
     # add delay to get the correct date
     curr_date = datetime.now(timezone.utc) - timedelta(hours=1)
@@ -34,7 +44,7 @@ def main() -> int:
     current_post.edit(
         PostContent(
             headline=curr_date.strftime("%Y-%m-%d"),
-            body=f"There have been {current_post.id - previous_post_id} posts today",
+            body=f"there have been {post_count} posts today\n\nthat's {abs(last_week_post_count_ratio):.2%} {'more' if last_week_post_count_ratio >= 0 else 'less'} than [last week's count](/{PROJECT_NAME}/post/{last_week_post_id}-{(curr_date - timedelta(days=7)).strftime('%Y-%m-%d')}) and {abs(week_average_post_count_ratio):.2%} {'more' if week_average_post_count_ratio >= 0 else 'less'} than the past week's average, {week_average_post_count:.2f}",
         ),
         new_status=PostStatus.public
     )
