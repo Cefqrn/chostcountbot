@@ -3,6 +3,7 @@ from __future__ import annotations
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from dataclasses import dataclass, field
+from functools import cache
 from enum import Enum
 from json import dumps, load
 from re import finditer
@@ -75,7 +76,7 @@ class PostContent:
                     headers={
                         "Content-Type": "application/json",
                         "User-Agent": USER_AGENT,
-                        "Cookie": cookie
+                        "Cookie": fetch_cookie()
                     },
                     method="POST"
                 )
@@ -159,7 +160,7 @@ class Post:
                     headers={
                         "Content-Type": "application/json",
                         "User-Agent": USER_AGENT,
-                        "Cookie": cookie
+                        "Cookie": fetch_cookie()
                     },
                     method="PUT")):
                 pass
@@ -183,7 +184,7 @@ class Post:
                     url=f"{HOST}/api/v1/project/{self.author}/posts/{self.id}",
                     headers={
                         "User-Agent": USER_AGENT,
-                        "Cookie": cookie
+                        "Cookie": fetch_cookie()
                     },
                     method="DELETE"
                 )
@@ -198,9 +199,11 @@ class Post:
             self.status = PostStatus.deleted
 
 
-try:
-    cookie = environ["CHOSTCOUNTBOT_COHOST_COOKIE"]
-except KeyError:
-    raise CookieNotFoundError(
-        "CHOSTCOUNTBOT_COHOST_COOKIE environment variable not set."
-    )
+@cache
+def fetch_cookie() -> str:
+    try:
+        return environ["CHOSTCOUNTBOT_COHOST_COOKIE"]
+    except KeyError:
+        raise CookieNotFoundError(
+            "CHOSTCOUNTBOT_COHOST_COOKIE environment variable not set."
+        )

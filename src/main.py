@@ -22,13 +22,17 @@ def main() -> int:
 
     # get the id of the previous post
     with ID_FILE_PATH.open("r+") as f:
-        lines = f.readlines()
-        previous_post_id = int(lines[-1]) if lines else 0
-        last_week_post_id = int(lines[-7]) if len(lines) >= 7 else 0
-        last_week_previous_post_id = int(lines[-8]) if len(lines) >= 8 else 0
+        lines = tuple(tuple(map(int, line.split())) for line in f.readlines())
+
+        previous_post_id = lines[-1][0] if lines else 0
+
+        last_week_post_id, last_week_bot_post_id = lines[-7] if len(lines) >= 7 else (0, 0)
+        last_week_previous_post_id = lines[-8][0] if len(lines) >= 8 else 0
 
         # append the current post id to the end of the file
-        print(current_post.id, file=f)
+        # 1st is the id of the last post of the day / first post of the next day
+        # 2nd is the id of the bot's post (makes manual days easier)
+        print(current_post.id, current_post.id, file=f)
 
     post_count = current_post.id - previous_post_id
 
@@ -44,7 +48,7 @@ def main() -> int:
     current_post.edit(
         PostContent(
             headline=curr_date.strftime("%Y-%m-%d"),
-            body=f"there have been {post_count} posts today\n\nthat's {abs(last_week_post_count_ratio):.2%} {'more' if last_week_post_count_ratio >= 0 else 'less'} than [last week's count](/{PROJECT_NAME}/post/{last_week_post_id}-{(curr_date - timedelta(days=7)).strftime('%Y-%m-%d')}) and {abs(week_average_post_count_ratio):.2%} {'more' if week_average_post_count_ratio >= 0 else 'less'} than the past week's average, {week_average_post_count:.2f}",
+            body=f"there have been {post_count} posts today\n\nthat's {abs(last_week_post_count_ratio):.2%} {'more' if last_week_post_count_ratio >= 0 else 'less'} than [last week's count](/{PROJECT_NAME}/post/{last_week_bot_post_id}-{(curr_date - timedelta(days=7)).strftime('%Y-%m-%d')}) and {abs(week_average_post_count_ratio):.2%} {'more' if week_average_post_count_ratio >= 0 else 'less'} than the past week's average, {week_average_post_count:.2f}",
         ),
         new_status=PostStatus.public
     )
@@ -71,7 +75,12 @@ if __name__ == "__main__":
     logging.Formatter.converter = gmtime
 
     logging.info("Started")
-    exit_code = main()
-    logging.info("Ended successfully")
+    try:
+        exit_code = main()
+    except Exception as e:
+        logging.info(f"Encountered an error ({type(e).__name__}): {e}")
+        exit_code = 1
+    else:
+        logging.info("Ended successfully")
 
     raise SystemExit(exit_code)

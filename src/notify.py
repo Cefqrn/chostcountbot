@@ -1,4 +1,5 @@
 from urllib.request import Request, urlopen
+from functools import cache
 from json import dumps
 from os import environ
 
@@ -11,7 +12,7 @@ class WebhookNotFoundError(Exception): ...
 def ping(message: str):
     with urlopen(
         Request(
-            url=webhook,
+            url=fetch_webhook(),
             data=dumps({"content": message}, separators=(",", ":")).encode(),
             headers={
                 "Content-Type": "application/json",
@@ -23,9 +24,11 @@ def ping(message: str):
         pass
 
 
-try:
-    webhook = environ["CHOSTCOUNTBOT_DISCORD_WEBHOOK"]
-except KeyError:
-    raise WebhookNotFoundError(
-        "CHOSTCOUNTBOT_DISCORD_WEBHOOK environment variable not set."
-    )
+@cache
+def fetch_webhook() -> str:
+    try:
+        return environ["CHOSTCOUNTBOT_DISCORD_WEBHOOK"]
+    except KeyError:
+        raise WebhookNotFoundError(
+            "CHOSTCOUNTBOT_DISCORD_WEBHOOK environment variable not set."
+        )
