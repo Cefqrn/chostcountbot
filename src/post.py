@@ -3,11 +3,9 @@ from __future__ import annotations
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from dataclasses import dataclass, field
-from functools import cache
 from enum import Enum
 from json import dumps, load
 from re import finditer
-from os import environ
 
 from typing import Optional
 
@@ -199,11 +197,14 @@ class Post:
             self.status = PostStatus.deleted
 
 
-@cache
+cookie: str | None = None
 def fetch_cookie() -> str:
-    try:
-        return environ["CHOSTCOUNTBOT_COHOST_COOKIE"]
-    except KeyError:
-        raise CookieNotFoundError(
-            "CHOSTCOUNTBOT_COHOST_COOKIE environment variable not set."
-        )
+    if cookie is None:
+        raise CookieNotFoundError
+    
+    return cookie
+
+
+def set_cookie(new_cookie: str) -> None:
+    global cookie
+    cookie = new_cookie

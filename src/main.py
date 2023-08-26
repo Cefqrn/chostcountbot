@@ -1,26 +1,44 @@
-from notify import ping
+from notify import ping, set_webhook
+from login import login
 from post import Post, PostStatus, PostContent
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from json import load
+
 import logging
 
 PROJECT_NAME = "chostcount"
-ID_FILE_PATH = Path(__file__).parent / "ids.txt"
+
+FOLDER_PATH = Path(__file__).parent
+ID_FILE_PATH = FOLDER_PATH / "ids.txt"
+CREDENTIALS_FILE_PATH = FOLDER_PATH / "credentials.json"
 
 
 def main() -> int:
+    with open(CREDENTIALS_FILE_PATH) as f:
+        credentials = load(f)
+
+    # log in
+    try:
+        login(credentials["email"], credentials["password"])
+    except KeyError:
+        logging.fatal("missing credentials")
+        return 1
+    else:
+        logging.info("logged in successfully")
+
     # make a post to get the latest id
     current_post: Post = PostContent(
         headline="",
         body=""
     ).post(PROJECT_NAME, status=PostStatus.draft)
-    logging.info(f"Posted successfully: id {current_post.id}")
+    logging.info(f"posted successfully: id {current_post.id}")
 
     # make sure the file exists before opening it
     ID_FILE_PATH.touch()
 
-    # get the id of the previous post
+    # get the id of previous posts
     with ID_FILE_PATH.open("r+") as f:
         lines = tuple(tuple(map(int, line.split())) for line in f.readlines())
 
@@ -45,6 +63,7 @@ def main() -> int:
     # add delay to get the correct date
     curr_date = datetime.now(timezone.utc) - timedelta(hours=1)
 
+    # edit the post to put in the information
     current_post.edit(
         PostContent(
             headline=curr_date.strftime("%Y-%m-%d"),
@@ -52,11 +71,17 @@ def main() -> int:
         ),
         new_status=PostStatus.public
     )
-    logging.info("Edited successfully")
+    logging.info("edited successfully")
 
     post_link = current_post.link
     logging.info(post_link)
-    ping(post_link)
+
+    try:
+        set_webhook(credentials["webhook"])
+    except KeyError:
+        logging.warn("could not fetch webhook")
+    else:
+        ping(post_link)
 
     return 0
 
@@ -74,13 +99,13 @@ if __name__ == "__main__":
 
     logging.Formatter.converter = gmtime
 
-    logging.info("Started")
+    logging.info("started")
     try:
         exit_code = main()
     except Exception as e:
-        logging.info(f"Encountered an error ({type(e).__name__}): {e}")
+        logging.fatal(f"encountered an error ({type(e).__name__}): {e}")
         exit_code = 1
     else:
-        logging.info("Ended successfully")
+        logging.info("ended successfully")
 
     raise SystemExit(exit_code)

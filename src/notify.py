@@ -1,7 +1,5 @@
 from urllib.request import Request, urlopen
-from functools import cache
 from json import dumps
-from os import environ
 
 USER_AGENT = "chostcountbot ( contact: cefqrn@gmail.com )"
 
@@ -24,11 +22,14 @@ def ping(message: str):
         pass
 
 
-@cache
+webhook: str | None = None
 def fetch_webhook() -> str:
-    try:
-        return environ["CHOSTCOUNTBOT_DISCORD_WEBHOOK"]
-    except KeyError:
-        raise WebhookNotFoundError(
-            "CHOSTCOUNTBOT_DISCORD_WEBHOOK environment variable not set."
-        )
+    if webhook is None:
+        raise WebhookNotFoundError
+    
+    return webhook
+
+
+def set_webhook(new_webhook: str) -> None:
+    global webhook
+    webhook = new_webhook
