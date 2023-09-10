@@ -2,11 +2,16 @@ from notify import ping, set_webhook
 from login import login
 from post import Post, PostStatus, PostContent
 
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from json import load
+from time import sleep
 
 import logging
+
+from collections.abc import Generator
+from typing import Optional
 
 PROJECT_NAME = "chostcount"
 
@@ -15,30 +20,69 @@ ID_FILE_PATH = FOLDER_PATH / "ids.txt"
 CREDENTIALS_FILE_PATH = FOLDER_PATH / "credentials.json"
 
 
-def main() -> int:
-    with open(CREDENTIALS_FILE_PATH) as f:
-        credentials = load(f)
-
-    # log in
+@contextmanager
+def log_action(
+    start_message: Optional[str]=None,
+    success_message: Optional[str]=None,
+    fail_message: Optional[str]=None,
+    end_message: Optional[str]=None,
+    bubble_exception: bool=True
+) -> Generator[None, None, None]:
     try:
-        login(credentials["email"], credentials["password"])
-    except KeyError:
-        logging.fatal("missing credentials")
-        return 1
+        if start_message is not None:
+            logging.info(start_message)
+
+        yield None
+    except Exception:
+        if fail_message is not None:
+            logging.exception(fail_message)
+
+        if bubble_exception:
+            raise
     else:
-        logging.info("logged in successfully")
+        if success_message is not None:
+            logging.info(success_message)
+    finally:
+        if end_message is not None:
+            logging.info(end_message)
+
+
+def main() -> None:
+    # log in
+    with log_action(
+        start_message="logging in",
+        fail_message="failed to log in",
+        success_message="logged in successfully"
+    ):
+        with open(CREDENTIALS_FILE_PATH) as f:
+            credentials = load(f)
+
+        login(credentials["email"], credentials["password"])
+
+    # wait till midnight to post
+    # (the script should be run before midnight e.g. 23:59)
+    tomorrow = (
+        (datetime.now(timezone.utc) + timedelta(hours=23))
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+    )
+    delay = (tomorrow - datetime.now(timezone.utc)).total_seconds()
+
+    logging.info(f"waiting {delay} seconds before posting")
+    sleep(delay)
 
     # make a post to get the latest id
-    current_post: Post = PostContent(
-        headline="",
-        body=""
-    ).post(PROJECT_NAME, status=PostStatus.draft)
-    logging.info(f"posted successfully: id {current_post.id}")
+    with log_action(
+        start_message="posting",
+        success_message="posted successfully"
+    ):
+        current_post: Post = PostContent(
+            headline="",
+            body=""
+        ).post(PROJECT_NAME, status=PostStatus.draft)
 
-    # make sure the file exists before opening it
-    ID_FILE_PATH.touch()
+    logging.info(f"post id: {current_post.id}")
 
-    # get the id of previous posts
+    # get the ids of previous posts
     with ID_FILE_PATH.open("r+") as f:
         lines = tuple(tuple(map(int, line.split())) for line in f.readlines())
 
@@ -55,35 +99,38 @@ def main() -> int:
     post_count = current_post.id - previous_post_id
 
     last_week_post_count = last_week_post_id - last_week_previous_post_id
-    last_week_post_count_ratio = (post_count - last_week_post_count) / last_week_post_count
+    last_week_post_count_ratio = (post_count - last_week_post_count) / (last_week_post_count or 1)
 
     week_average_post_count = (previous_post_id - last_week_previous_post_id) / 7
-    week_average_post_count_ratio = (post_count - week_average_post_count) / week_average_post_count
+    week_average_post_count_ratio = (post_count - week_average_post_count) / (week_average_post_count or 1)
 
     # add delay to get the correct date
     curr_date = datetime.now(timezone.utc) - timedelta(hours=1)
 
     # edit the post to put in the information
-    current_post.edit(
-        PostContent(
-            headline=curr_date.strftime("%Y-%m-%d"),
-            body=f"there have been {post_count} posts today\n\nthat's {abs(last_week_post_count_ratio):.2%} {'more' if last_week_post_count_ratio >= 0 else 'less'} than [last week's count](/{PROJECT_NAME}/post/{last_week_bot_post_id}-{(curr_date - timedelta(days=7)).strftime('%Y-%m-%d')}) and {abs(week_average_post_count_ratio):.2%} {'more' if week_average_post_count_ratio >= 0 else 'less'} than the past week's average, {week_average_post_count:.2f}",
-        ),
-        new_status=PostStatus.public
-    )
-    logging.info("edited successfully")
+    with log_action(
+        start_message="editing post",
+        success_message="edited post successfully",
+        fail_message="could not edit post"
+    ):
+        current_post.edit(
+            PostContent(
+                headline=curr_date.strftime("%Y-%m-%d"),
+                body=f"there have been {post_count} posts today\n\nthat's {abs(last_week_post_count_ratio):.2%} {'more' if last_week_post_count_ratio >= 0 else 'less'} than [last week's count](/{PROJECT_NAME}/post/{last_week_bot_post_id}-{(curr_date - timedelta(days=7)).strftime('%Y-%m-%d')}) and {abs(week_average_post_count_ratio):.2%} {'more' if week_average_post_count_ratio >= 0 else 'less'} than the past week's average, {week_average_post_count:.2f}",
+            ),
+            new_status=PostStatus.public
+        )
 
-    post_link = current_post.link
-    logging.info(post_link)
+    logging.info(current_post.link)
 
-    try:
+    with log_action(
+        start_message="pushing to webhook",
+        success_message="pushed successfully",
+        fail_message="could not push to webhook",
+        bubble_exception=False
+    ):
         set_webhook(credentials["webhook"])
-    except KeyError:
-        logging.warn("could not fetch webhook")
-    else:
-        ping(post_link)
-
-    return 0
+        ping(current_post.link)
 
 
 if __name__ == "__main__":
@@ -96,16 +143,12 @@ if __name__ == "__main__":
         filename="log.log",
         level=logging.INFO
     )
-
     logging.Formatter.converter = gmtime
 
-    logging.info("started")
-    try:
-        exit_code = main()
-    except Exception as e:
-        logging.fatal(f"encountered an error ({type(e).__name__}): {e}")
-        exit_code = 1
-    else:
-        logging.info("ended successfully")
-
-    raise SystemExit(exit_code)
+    with log_action(
+        start_message="starting",
+        success_message="ended successfully",
+        fail_message="encountered an error",
+        bubble_exception=False
+    ):
+        main()
