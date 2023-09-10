@@ -39,8 +39,8 @@ def login(email: str, password: str) -> None:
         f"{HOST}/api/v1/trpc/login.getSalt?batch=1&input=" \
             + quote(dumps({"0": {"email": email}}, separators=(',', ':'))),
         headers={
-            "User-Agent": "cefqrn again (cefqrn@gmail.com)",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT
         }
     )) as f:
         salt: str = load(f)[0]["result"]["data"]["salt"]
