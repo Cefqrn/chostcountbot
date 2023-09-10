@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from config import USER_AGENT, HOST
+
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from dataclasses import dataclass, field
@@ -8,9 +10,6 @@ from json import dumps, load
 from re import finditer
 
 from typing import Optional
-
-USER_AGENT = "chostcountbot ( contact: cefqrn@gmail.com )"
-HOST = "https://cohost.org"
 
 MAX_TITLE_LENGTH = 28
 

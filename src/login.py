@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from config import USER_AGENT, HOST
 from post import set_cookie
 
 from urllib.request import Request, urlopen
@@ -7,9 +8,6 @@ from urllib.parse import quote
 from hashlib import pbkdf2_hmac
 from base64 import b64encode, b64decode
 from json import dumps, load
-
-USER_AGENT = "chostcountbot ( contact: cefqrn@gmail.com )"
-HOST = "https://cohost.org"
 
 PBKDF_ITERATION_COUNT = 200_000
 PBKDF_KEY_LENGTH = 128

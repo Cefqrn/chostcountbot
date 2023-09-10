@@ -1,3 +1,4 @@
+from config import PROJECT_NAME, ID_FILENAME, CREDENTIALS_FILENAME
 from notify import ping, set_webhook
 from login import login
 from post import Post, PostStatus, PostContent
@@ -13,11 +14,9 @@ import logging
 from collections.abc import Generator
 from typing import Optional
 
-PROJECT_NAME = "chostcount"
-
 FOLDER_PATH = Path(__file__).parent
-ID_FILE_PATH = FOLDER_PATH / "ids.txt"
-CREDENTIALS_FILE_PATH = FOLDER_PATH / "credentials.json"
+ID_FILE_PATH = FOLDER_PATH / ID_FILENAME
+CREDENTIALS_FILE_PATH = FOLDER_PATH / CREDENTIALS_FILENAME
 
 
 @contextmanager
@@ -83,6 +82,7 @@ def main() -> None:
     logging.info(f"post id: {current_post.id}")
 
     # get the ids of previous posts
+    ID_FILE_PATH.touch()
     with ID_FILE_PATH.open("r+") as f:
         lines = tuple(tuple(map(int, line.split())) for line in f.readlines())
 

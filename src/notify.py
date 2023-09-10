@@ -1,7 +1,7 @@
+from config import USER_AGENT
+
 from urllib.request import Request, urlopen
 from json import dumps
-
-USER_AGENT = "chostcountbot ( contact: cefqrn@gmail.com )"
 
 
 class WebhookNotFoundError(Exception): ...
