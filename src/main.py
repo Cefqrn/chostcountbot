@@ -31,7 +31,7 @@ def log_action(
         if start_message is not None:
             logging.info(start_message)
 
-        yield None
+        yield
     except Exception:
         if fail_message is not None:
             logging.exception(fail_message)
@@ -53,7 +53,7 @@ def main() -> None:
         fail_message="failed to log in",
         success_message="logged in successfully"
     ):
-        with open(CREDENTIALS_FILE_PATH) as f:
+        with CREDENTIALS_FILE_PATH.open() as f:
             credentials = load(f)
 
         login(credentials["email"], credentials["password"])
