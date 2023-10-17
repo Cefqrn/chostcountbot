@@ -7,10 +7,10 @@ from json import dumps
 class WebhookNotFoundError(Exception): ...
 
 
-def ping(message: str):
+def ping(message: str, webhook: str):
     with urlopen(
         Request(
-            url=fetch_webhook(),
+            url=webhook,
             data=dumps({"content": message}, separators=(",", ":")).encode(),
             headers={
                 "Content-Type": "application/json",
@@ -20,16 +20,3 @@ def ping(message: str):
         )
     ):
         pass
-
-
-webhook: str | None = None
-def fetch_webhook() -> str:
-    if webhook is None:
-        raise WebhookNotFoundError
-    
-    return webhook
-
-
-def set_webhook(new_webhook: str) -> None:
-    global webhook
-    webhook = new_webhook
