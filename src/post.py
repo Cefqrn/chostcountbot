@@ -61,7 +61,7 @@ class PostContent:
             "tags": self.tags
         }, separators=(",", ":")).encode()
 
-    def post(self, project_name: str, status: PostStatus=PostStatus.public) -> Post:
+    def post(self, cookie: str, project_name: str, status: PostStatus=PostStatus.public) -> Post:
         """
         Post the content under `project_name` with the status `status`.
         """
@@ -73,7 +73,7 @@ class PostContent:
                     headers={
                         "Content-Type": "application/json",
                         "User-Agent": USER_AGENT,
-                        "Cookie": fetch_cookie()
+                        "Cookie": cookie
                     },
                     method="POST"
                 )
@@ -131,6 +131,7 @@ class Post:
 
     def edit(
         self,
+        cookie: str,
         new_content: Optional[PostContent]=None,
         new_status: Optional[PostStatus]=None
     ) -> None:
@@ -157,7 +158,7 @@ class Post:
                     headers={
                         "Content-Type": "application/json",
                         "User-Agent": USER_AGENT,
-                        "Cookie": fetch_cookie()
+                        "Cookie": cookie
                     },
                     method="PUT")):
                 pass
@@ -170,7 +171,7 @@ class Post:
             self.content = new_content
             self.status = new_status
 
-    def delete(self) -> None:
+    def delete(self, cookie: str) -> None:
         """Delete the post."""
         if self.status is PostStatus.deleted:
             raise PostDeletedError("post already deleted")
@@ -181,7 +182,7 @@ class Post:
                     url=f"{HOST}/api/v1/project/{self.author}/posts/{self.id}",
                     headers={
                         "User-Agent": USER_AGENT,
-                        "Cookie": fetch_cookie()
+                        "Cookie": cookie
                     },
                     method="DELETE"
                 )
@@ -194,16 +195,3 @@ class Post:
             raise PostError from e
         else:
             self.status = PostStatus.deleted
-
-
-cookie: str | None = None
-def fetch_cookie() -> str:
-    if cookie is None:
-        raise CookieNotFoundError
-    
-    return cookie
-
-
-def set_cookie(new_cookie: str) -> None:
-    global cookie
-    cookie = new_cookie

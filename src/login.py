@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from config import USER_AGENT, HOST
-from post import set_cookie
 
 from urllib.request import Request, urlopen
 from urllib.parse import quote
@@ -30,7 +29,7 @@ def hash_password(password: bytes, salt: bytes) -> bytes:
     ))
 
 
-def login(email: str, password: str) -> None:
+def login(email: str, password: str) -> str:
     # see https://cohost.org/iliana/post/180187-eggbug-rs-v0-1-3-d
 
     with urlopen(Request(
@@ -55,9 +54,10 @@ def login(email: str, password: str) -> None:
         },
         method="POST"
     )) as f:
+        # ignore everything other than the sid
         cookie: str = next(filter(
             lambda s: s.startswith("connect.sid"),
             f.headers.get("set-cookie").split("; ")
         ))
 
-    set_cookie(cookie)
+    return cookie

@@ -98,7 +98,7 @@ def get_final_post_content(id_file: TextIO, current_post_id: int, current_date: 
     )
 
 
-def create_post(id_file: TextIO) -> Post:
+def create_post(cookie: str, id_file: TextIO) -> Post:
     # get the current date
     current_date = datetime.now(timezone.utc)
 
@@ -116,7 +116,7 @@ def create_post(id_file: TextIO) -> Post:
         current_post: Post = PostContent(
             headline="",
             body=""
-        ).post(PROJECT_NAME, status=PostStatus.draft)
+        ).post(cookie, PROJECT_NAME, status=PostStatus.draft)
 
     logging.info(f"post id: {current_post.id}")
 
@@ -127,6 +127,7 @@ def create_post(id_file: TextIO) -> Post:
         fail_message="couldn't edit post"
     ):
         current_post.edit(
+            cookie,
             get_final_post_content(id_file, current_post.id, current_date),
             new_status=PostStatus.public
         )
@@ -146,7 +147,7 @@ def main() -> None:
         CREDENTIALS_FILE_PATH.open() as credentials_file
     ):
         credentials = load(credentials_file)
-        login(credentials["email"], credentials["password"])
+        cookie = login(credentials["email"], credentials["password"])
 
     webhook = None
     with log_action(fail_message="couldn't get webhook", bubble_exception=False):
@@ -160,7 +161,7 @@ def main() -> None:
         ),
         ID_FILE_PATH.open("r+") as id_file
     ):
-        post = create_post(id_file)
+        post = create_post(cookie, id_file)
 
     with log_action(
         start_message="pushing to webhook",
