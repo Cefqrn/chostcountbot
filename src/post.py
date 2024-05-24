@@ -41,7 +41,7 @@ class PostContent:
     def encode(self, status: PostStatus) -> bytes:
         """
         Convert the content into a `bytes` object.
-        
+
         Used when sending requests to the api.
         """
         # if the headline is empty there needs to be at least one block
@@ -106,7 +106,7 @@ class Post:
     author: str
     content: PostContent
     status: PostStatus
-    
+
     @property
     def title(self):
         """Last element in the link to the post."""
@@ -121,9 +121,9 @@ class Post:
                 break
 
             title += "-" + word.group()[:remaining_length - 1].lower()
-            
+
         return title
-    
+
     @property
     def link(self):
         """The Legend of Eggbug: A Link to the Post."""
@@ -137,7 +137,7 @@ class Post:
     ) -> None:
         """
         Modify the content and/or the status of the post.
-        
+
         If `new_content` is `None`, the post keeps its current content.
 
         If `new_status` is `None`, the post keeps its current status.
@@ -165,7 +165,7 @@ class Post:
         except HTTPError as e:
             if e.code == 403:
                 raise PostForbiddenError from e
-            
+
             raise PostError from e
         else:
             self.content = new_content
