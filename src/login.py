@@ -10,23 +10,24 @@ from json import dumps, load
 
 PBKDF_ITERATION_COUNT = 200_000
 PBKDF_KEY_LENGTH = 128
+PBKDF_HASH_NAME = "SHA384"
 
 
-def decode_salt(encoded_salt: bytes) -> bytes:
-    unpadded_salt = encoded_salt.translate(bytes.maketrans(b"-_", b"AA"))
-    padding = (-len(encoded_salt) % 4) * b"="
+def decode_salt(encoded_salt: str) -> bytes:
+    unpadded_salt = encoded_salt.translate(str.maketrans("-_", "AA"))
+    padding = (-len(unpadded_salt) % 4) * "="
 
     return b64decode(unpadded_salt + padding)
 
 
 def hash_password(password: bytes, salt: bytes) -> bytes:
-    return b64encode(pbkdf2_hmac(
-        hash_name="SHA384",
+    return pbkdf2_hmac(
+        hash_name=PBKDF_HASH_NAME,
         password=password,
-        salt=decode_salt(salt),
+        salt=salt,
         iterations=PBKDF_ITERATION_COUNT,
         dklen=PBKDF_KEY_LENGTH
-    ))
+    )
 
 
 def login(email: str, password: str) -> str:
@@ -40,12 +41,12 @@ def login(email: str, password: str) -> str:
             "User-Agent": USER_AGENT
         }
     )) as f:
-        salt: str = load(f)[0]["result"]["data"]["salt"]
+        salt = decode_salt(load(f)[0]["result"]["data"]["salt"])
 
     with urlopen(Request(
         url=f"{HOST}/api/v1/trpc/login.login?batch=1",
         data=dumps({"0": {
-            "clientHash": hash_password(password.encode(), salt.encode()).decode(),
+            "clientHash": b64encode(hash_password(password.encode(), salt)).decode(),
             "email": email
         }}, separators=(",", ":")).encode(),
         headers={
