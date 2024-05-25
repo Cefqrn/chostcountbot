@@ -5,9 +5,10 @@ from config import USER_AGENT, HOST
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from dataclasses import dataclass, field
+from itertools import chain
 from enum import Enum
 from json import dumps, load
-from re import finditer
+from re import findall
 
 from typing import Optional
 
@@ -110,19 +111,10 @@ class Post:
     @property
     def title(self):
         """Last element in the link to the post."""
-        title = str(self.id)
-
         title_content = self.content.headline or self.content.body or "empty"
-        for word in finditer(r"\w+", title_content):
-            remaining_length = MAX_TITLE_LENGTH - len(title)
+        title = "-".join(chain([str(self.id)], findall(r"\w+", title_content)))
 
-            # don't end on a hyphen
-            if remaining_length <= 1:
-                break
-
-            title += "-" + word.group()[:remaining_length - 1].lower()
-
-        return title
+        return title[:MAX_TITLE_LENGTH].removesuffix("-").lower()
 
     @property
     def link(self):
