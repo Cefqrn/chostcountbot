@@ -1,32 +1,24 @@
 from config import PROJECT_NAME, ID_FILENAME, CREDENTIALS_FILENAME, DELAY_OVERRIDE
+
+from chostcountbot import Day, get_final_post_content
 from notify import ping
 from login import login
-from post import Post, PostStatus, PostContent
+from post import PostContent, PostStatus
 
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import NamedTuple
 from json import load
 from time import sleep
-
 import logging
+import csv
 
 from collections.abc import Generator
-from typing import Optional, TextIO
+from typing import Optional
 
 FOLDER_PATH = Path(__file__).parent
 ID_FILE_PATH = FOLDER_PATH / ID_FILENAME
 CREDENTIALS_FILE_PATH = FOLDER_PATH / CREDENTIALS_FILENAME
-
-
-class DayPostIDs(NamedTuple):
-    # last post of the day / first post of the next day.
-    # used for finding the amount of posts posted
-    last_post_ID: int
-    # bot's post for that day
-    # used for linking to previous days
-    bot_post_ID: int
 
 
 @contextmanager
@@ -56,112 +48,92 @@ def log_action(
             logging.info(end_message)
 
 
-def time_until_tomorrow() -> float:
-    if DELAY_OVERRIDE is not None:
-        return DELAY_OVERRIDE
+def create_post(cookie: str):
+    # read in the data from previous days
+    data = {}
+    with (
+        log_action(
+            start_message="reading from database",
+            fail_message="could not read from database"
+        ),
+        ID_FILE_PATH.open("r+", newline="") as f
+    ):
+        reader = csv.DictReader(f)
+        for day in map(Day.from_dict, reader):
+            data[day.date] = day
 
-    tomorrow = (
-        (datetime.now(timezone.utc) + timedelta(hours=23))
-        .replace(hour=0, minute=0, second=0, microsecond=0)
-    )
-
-    return (tomorrow - datetime.now(timezone.utc)).total_seconds()
-
-
-def format_date(d: datetime) -> str:
-    return d.strftime("%Y-%m-%d")
-
-
-def get_final_post_content(id_file: TextIO, current_post_id: int, current_date: datetime) -> PostContent:
-    with log_action(fail_message="couldn't get previous ids"):
-        previous_ids = tuple(DayPostIDs(*map(int, line.split())) for line in id_file)
-
-        previous_post_id = previous_ids[-1].last_post_ID if previous_ids else 0
-
-        last_week_post_id, last_week_bot_post_id = previous_ids[-7] if len(previous_ids) >= 7 else (0, 0)
-        last_week_previous_post_id = previous_ids[-8].last_post_ID if len(previous_ids) >= 8 else 0
-
-        # append the current post ids to the end of the file
-        print(current_post_id, current_post_id, file=id_file)
-
-    post_count = current_post_id - previous_post_id
-
-    last_week_post_count = last_week_post_id - last_week_previous_post_id
-    last_week_post_count_ratio = (post_count - last_week_post_count) / (last_week_post_count or 1)
-
-    week_average_post_count = (previous_post_id - last_week_previous_post_id) / 7
-    week_average_post_count_ratio = (post_count - week_average_post_count) / (week_average_post_count or 1)
-
-    return PostContent(
-        headline=format_date(current_date),
-        body=f"there have been {post_count} posts today\n\nthat's {abs(last_week_post_count_ratio):.2%} {'more' if last_week_post_count_ratio >= 0 else 'less'} than [last week's count](/{PROJECT_NAME}/post/{last_week_bot_post_id}-{format_date(current_date - timedelta(days=7))}) and {abs(week_average_post_count_ratio):.2%} {'more' if week_average_post_count_ratio >= 0 else 'less'} than the past week's average, {week_average_post_count:.2f}"
-    )
-
-
-def create_post(cookie: str, id_file: TextIO) -> Post:
     # get the current date
-    current_date = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    current_date = now.date()
 
     # wait until midnight
-    delay = time_until_tomorrow()
-    with log_action(f"waiting {delay} seconds before posting"):
-        sleep(delay)
+    if DELAY_OVERRIDE is None:
+        midnight = (now + timedelta(1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        time_to_tomorrow = (midnight - now).total_seconds()
+    else:
+        time_to_tomorrow = DELAY_OVERRIDE
+
+    sleep(time_to_tomorrow)
 
     # make a post to get the latest id
+    with log_action(
+        start_message="posting initial post",
+        fail_message="could not post"
+    ):
+        post = PostContent(
+            headline="",
+            body=""
+        ).post(cookie, PROJECT_NAME, status=PostStatus.draft)
+
+    today = Day(current_date, post.id, post.id)
+    data[current_date] = today
+
+    # add the new data to the database
+    with (
+        log_action(
+            start_message="updating database",
+            fail_message="could not update database"
+        ),
+        ID_FILE_PATH.open("a", newline="") as f
+    ):
+        writer = csv.DictWriter(f, fieldnames=Day._fields)
+        writer.writerow(today.to_dict())
+
+    # edit the post to put in the information
+    with log_action(
+        start_message="editing post",
+        fail_message="could not edit post"
+    ):
+        post.edit(
+            cookie,
+            get_final_post_content(PROJECT_NAME, data, current_date),
+            PostStatus.public
+        )
+
+    logging.info(post.link)
+
+    return post
+
+
+def main():
+    with (
+        log_action(
+            start_message="logging in",
+            success_message="logged in successfully",
+            fail_message="couldn't log in"
+        ),
+        CREDENTIALS_FILE_PATH.open() as f
+    ):
+        credentials = load(f)
+        cookie = login(credentials["email"], credentials["password"])
+
+    post = None
     with log_action(
         start_message="posting",
         success_message="posted successfully",
         fail_message="couldn't post"
     ):
-        current_post: Post = PostContent(
-            headline="",
-            body=""
-        ).post(cookie, PROJECT_NAME, status=PostStatus.draft)
-
-    logging.info(f"post id: {current_post.id}")
-
-    # edit the post to put in the information
-    with log_action(
-        start_message="editing post",
-        success_message="edited post successfully",
-        fail_message="couldn't edit post"
-    ):
-        current_post.edit(
-            cookie,
-            get_final_post_content(id_file, current_post.id, current_date),
-            new_status=PostStatus.public
-        )
-
-    logging.info(current_post.link)
-
-    return current_post
-
-
-def main() -> None:
-    with (
-        log_action(
-            start_message="logging in",
-            fail_message="couldn't log in",
-            success_message="logged in successfully"
-        ),
-        CREDENTIALS_FILE_PATH.open() as credentials_file
-    ):
-        credentials = load(credentials_file)
-        cookie = login(credentials["email"], credentials["password"])
-
-    webhook = None
-    with log_action(fail_message="couldn't get webhook", bubble_exception=False):
-        webhook = credentials["webhook"]
-
-    post = None
-    with (
-        log_action(
-            fail_message="couldn't post",
-            bubble_exception=False
-        ),
-        ID_FILE_PATH.open("r+") as id_file
-    ):
-        post = create_post(cookie, id_file)
+        post = create_post(cookie)
 
     with log_action(
         start_message="pushing to webhook",
@@ -169,6 +141,8 @@ def main() -> None:
         fail_message="couldn't push to webhook",
         bubble_exception=False
     ):
+        webhook = credentials["webhook"]
+
         if post is None:
             id_b = "897120769".lower()
             id_a = "397120199".capitalize()
