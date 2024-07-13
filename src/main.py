@@ -16,7 +16,7 @@ import csv
 from collections.abc import Generator
 from typing import Optional
 
-FOLDER_PATH = Path(__file__).parent
+FOLDER_PATH = Path.cwd()
 ID_FILE_PATH = FOLDER_PATH / ID_FILENAME
 CREDENTIALS_FILE_PATH = FOLDER_PATH / CREDENTIALS_FILENAME
 
