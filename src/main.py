@@ -1,4 +1,4 @@
-from config import PROJECT_NAME, ID_FILENAME, CREDENTIALS_FILENAME, DELAY_OVERRIDE
+from config import PROJECT_NAME, ID_FILENAME, CREDENTIALS_FILENAME, DATE_OVERRIDE, DELAY_OVERRIDE, ID_OVERRIDE
 
 from chostcountbot import Day, get_final_post_content
 from notify import ping
@@ -64,7 +64,11 @@ def create_post(cookie: str):
 
     # get the current date
     now = datetime.now(timezone.utc)
-    current_date = now.date()
+
+    if DATE_OVERRIDE is None:
+        current_date = now.date()
+    else:
+        current_date = DATE_OVERRIDE
 
     # wait until midnight
     if DELAY_OVERRIDE is None:
@@ -81,11 +85,16 @@ def create_post(cookie: str):
         fail_message="could not post"
     ):
         post = PostContent(
-            headline="",
+            headline="pineapples",
             body=""
         ).post(cookie, PROJECT_NAME, status=PostStatus.draft)
 
-    today = Day(current_date, post.id, post.id)
+    if ID_OVERRIDE is None:
+        date_id = post.id
+    else:
+        date_id =  ID_OVERRIDE
+
+    today = Day(current_date, date_id, post.id)
     data[current_date] = today
 
     # add the new data to the database
