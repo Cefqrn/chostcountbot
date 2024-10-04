@@ -3,5 +3,4 @@ __pycache__
 .DS_Store
 
 log.log
-ids.txt
 credentials.json
